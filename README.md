@@ -13,10 +13,10 @@ Our system follows a decoupled Client-Server architecture utilizing a modern sta
 
 ```mermaid
 graph TD
-    Client[React Frontend] -->|REST API (Axios)| Server[Node.js / Express Backend]
-    Server -->|Read/Write via supabase-js| SupabaseDB[(Supabase PostgreSQL)]
-    Client <-->|WebSockets| SupabaseRealtime[Supabase Realtime]
-    Server -->|Trigger Events| SupabaseRealtime
+    Client["React Frontend"] -->|"REST API (Axios)"| Server["Node.js Backend"]
+    Server -->|"Read/Write via supabase-js"| SupabaseDB[("Supabase PostgreSQL")]
+    Client <-->|"WebSockets"| SupabaseRealtime["Supabase Realtime"]
+    Server -->|"Trigger Events"| SupabaseRealtime
 ```
 
 ### Database Schema (ER Diagram)
@@ -35,15 +35,15 @@ erDiagram
         string name
         string email
         string password_hash
-        string role "admin/member"
+        string role "admin or member"
     }
     
     TASKS {
         uuid id PK
         string title
         string description
-        string status "todo/in_progress/done"
-        string priority "low/medium/high"
+        string status "todo, in_progress, done"
+        string priority "low, medium, high"
         timestamp deadline
         uuid creator_id FK
     }
