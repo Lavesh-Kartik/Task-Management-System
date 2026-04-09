@@ -1,0 +1,132 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --bg-primary: #0d1221;
+    --bg-secondary: #1a2035;
+    --bg-card: #1e2a42;
+    --bg-hover: #243354;
+    --border: #2a3452;
+    --text-primary: #f0f4ff;
+    --text-secondary: #9aa5be;
+    --accent: #5b75f3;
+  }
+
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  body {
+    @apply bg-dark-950 text-dark-100 font-sans antialiased;
+    background-image: radial-gradient(ellipse at top left, rgba(91,117,243,0.05) 0%, transparent 60%);
+  }
+
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    @apply bg-dark-900;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-dark-600 rounded-full;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-dark-500;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-brand-600 hover:bg-brand-700 text-white font-medium px-4 py-2 rounded-lg transition-all duration-200 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed active:scale-95;
+  }
+
+  .btn-secondary {
+    @apply bg-dark-800 hover:bg-dark-700 text-dark-200 font-medium px-4 py-2 rounded-lg transition-all duration-200 flex items-center gap-2 border border-dark-600 hover:border-dark-500 active:scale-95;
+  }
+
+  .btn-danger {
+    @apply bg-red-600/20 hover:bg-red-600/30 text-red-400 font-medium px-4 py-2 rounded-lg transition-all duration-200 flex items-center gap-2 border border-red-600/30 active:scale-95;
+  }
+
+  .card {
+    @apply bg-dark-800 border border-dark-700 rounded-xl shadow-lg;
+  }
+
+  .input {
+    @apply w-full bg-dark-900 border border-dark-600 rounded-lg px-3 py-2.5 text-dark-100 placeholder-dark-500 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500/50 transition-all duration-200;
+  }
+
+  .label {
+    @apply text-sm font-medium text-dark-300 mb-1 block;
+  }
+
+  .badge {
+    @apply inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium;
+  }
+
+  .badge-todo {
+    @apply badge bg-dark-700 text-dark-300;
+  }
+
+  .badge-in_progress {
+    @apply badge bg-blue-500/20 text-blue-400;
+  }
+
+  .badge-done {
+    @apply badge bg-green-500/20 text-green-400;
+  }
+
+  .badge-low {
+    @apply badge bg-slate-500/20 text-slate-400;
+  }
+
+  .badge-medium {
+    @apply badge bg-amber-500/20 text-amber-400;
+  }
+
+  .badge-high {
+    @apply badge bg-red-500/20 text-red-400;
+  }
+
+  .kanban-col {
+    @apply flex flex-col bg-dark-900/60 rounded-xl border border-dark-700 min-h-96;
+    width: 320px;
+    min-width: 320px;
+  }
+
+  .task-card {
+    @apply card p-4 cursor-pointer hover:border-brand-600/50 hover:shadow-xl transition-all duration-200;
+  }
+
+  .sidebar-link {
+    @apply flex items-center gap-3 px-3 py-2.5 rounded-lg text-dark-400 hover:text-dark-100 hover:bg-dark-800 transition-all duration-200 text-sm font-medium cursor-pointer;
+  }
+
+  .sidebar-link.active {
+    @apply bg-brand-600/20 text-brand-400 hover:bg-brand-600/30 hover:text-brand-300;
+  }
+
+  .modal-backdrop {
+    @apply fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in;
+  }
+
+  .modal {
+    @apply bg-dark-800 border border-dark-700 rounded-2xl shadow-2xl w-full animate-bounce-in;
+  }
+}
+
+@layer utilities {
+  .text-gradient {
+    @apply bg-gradient-to-r from-brand-400 to-purple-400 bg-clip-text text-transparent;
+  }
+
+  .glow {
+    box-shadow: 0 0 20px rgba(91, 117, 243, 0.3);
+  }
+}
