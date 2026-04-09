@@ -11,44 +11,56 @@ A production-ready task management system seamlessly blending elements of Trello
 ### High-Level Architecture
 Our system follows a decoupled Client-Server architecture utilizing a modern stack. The React frontend communicates with the Node.js API backend via standard REST workflows, while leveraging Supabase for database integration and real-time WebSocket broadcasting.
 
-```text
-+-------------------+       REST API over HTTPS      +------------------------+
-|                   |  --------------------------->  |                        |
-|  React Frontend   |                                |  Node.js / Express     |
-|  (Vercel)         |  <---------------------------  |  Backend API Server    |
-|                   |           JSON Data            |  (Render)              |
-+---------+---------+                                +-----------+------------+
-          ^                                                      |
-          | WebSockets                                           | DB Queries
-          | (Real-time events)                                   | (supabase-js)
-          v                                                      v
-+-----------------------------------------------------------------------------+
-|                                  SUPABASE                                   |
-|  +--------------------+                               +------------------+  |
-|  | Realtime Server    | <--- Triggers DB Events ----- | PostgreSQL DB    |  |
-|  +--------------------+                               +------------------+  |
-+-----------------------------------------------------------------------------+
+```mermaid
+graph TD
+    Client[React Frontend] -->|REST API (Axios)| Server[Node.js / Express Backend]
+    Server -->|Read/Write via supabase-js| SupabaseDB[(Supabase PostgreSQL)]
+    Client <-->|WebSockets| SupabaseRealtime[Supabase Realtime]
+    Server -->|Trigger Events| SupabaseRealtime
 ```
 
 ### Database Schema (ER Diagram)
 The relational flow inside our PostgreSQL database uses standard primary/foreign key relationships (UUIDs).
 
-```text
-       [ USERS ] 1 ------------------------- * [ TASKS ]
-       - id (UUID) PK                            - id (UUID) PK
-       - name (String)                           - title (String)
-       - email (String)                          - status (String)
-       - password_hash (String)                  - priority (String)
-       - role (String)                           - creator_id (UUID) FK
-                                                         |
-                                                         | 1
-             +-------------------------------------------+-----------------------------------------+
-           * |                                                                                   | *
-[ COMMENTS ]                                                                     [ ACTIVITY_LOGS ]
-- id (UUID) PK                                                                   - id (UUID) PK
-- task_id (UUID) FK                                                              - task_id (UUID) FK
-- user_id (UUID) FK >--* [ USERS ]                                               - user_id (UUID) FK >--* [ USERS ]
-- content (Text)                                                                 - action (String)
+```mermaid
+erDiagram
+    USERS ||--o{ TASKS : "creates & assigned to"
+    USERS ||--o{ COMMENTS : "writes"
+    USERS ||--o{ NOTIFICATIONS : "receives"
+    TASKS ||--o{ COMMENTS : "has"
+    TASKS ||--o{ ACTIVITY_LOGS : "generates"
+    
+    USERS {
+        uuid id PK
+        string name
+        string email
+        string password_hash
+        string role "admin/member"
+    }
+    
+    TASKS {
+        uuid id PK
+        string title
+        string description
+        string status "todo/in_progress/done"
+        string priority "low/medium/high"
+        timestamp deadline
+        uuid creator_id FK
+    }
+    
+    COMMENTS {
+        uuid id PK
+        uuid task_id FK
+        uuid user_id FK
+        string content
+    }
+    
+    ACTIVITY_LOGS {
+        uuid id PK
+        uuid task_id FK
+        uuid user_id FK
+        string action
+    }
 ```
 
 ---
@@ -209,7 +221,6 @@ VITE_API_URL=http://localhost:5001/api
 VITE_SUPABASE_URL=https://<YOUR_PROJECT_ID>.supabase.co
 VITE_SUPABASE_ANON_KEY=<YOUR_SUPABASE_ANON_KEY>
 ```
-
 ---
 
 ## 🌐 Deployment Guide (Production)
