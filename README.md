@@ -11,56 +11,44 @@ A production-ready task management system seamlessly blending elements of Trello
 ### High-Level Architecture
 Our system follows a decoupled Client-Server architecture utilizing a modern stack. The React frontend communicates with the Node.js API backend via standard REST workflows, while leveraging Supabase for database integration and real-time WebSocket broadcasting.
 
-```mermaid
-graph TD
-    Client[React Frontend] -->|REST API (Axios)| Server[Node.js / Express Backend]
-    Server -->|Read/Write via supabase-js| SupabaseDB[(Supabase PostgreSQL)]
-    Client <-->|WebSockets| SupabaseRealtime[Supabase Realtime]
-    Server -->|Trigger Events| SupabaseRealtime
+```text
++-------------------+       REST API over HTTPS      +------------------------+
+|                   |  --------------------------->  |                        |
+|  React Frontend   |                                |  Node.js / Express     |
+|  (Vercel)         |  <---------------------------  |  Backend API Server    |
+|                   |           JSON Data            |  (Render)              |
++---------+---------+                                +-----------+------------+
+          ^                                                      |
+          | WebSockets                                           | DB Queries
+          | (Real-time events)                                   | (supabase-js)
+          v                                                      v
++-----------------------------------------------------------------------------+
+|                                  SUPABASE                                   |
+|  +--------------------+                               +------------------+  |
+|  | Realtime Server    | <--- Triggers DB Events ----- | PostgreSQL DB    |  |
+|  +--------------------+                               +------------------+  |
++-----------------------------------------------------------------------------+
 ```
 
 ### Database Schema (ER Diagram)
 The relational flow inside our PostgreSQL database uses standard primary/foreign key relationships (UUIDs).
 
-```mermaid
-erDiagram
-    USERS ||--o{ TASKS : "creates & assigned to"
-    USERS ||--o{ COMMENTS : "writes"
-    USERS ||--o{ NOTIFICATIONS : "receives"
-    TASKS ||--o{ COMMENTS : "has"
-    TASKS ||--o{ ACTIVITY_LOGS : "generates"
-    
-    USERS {
-        uuid id PK
-        string name
-        string email
-        string password_hash
-        string role "admin/member"
-    }
-    
-    TASKS {
-        uuid id PK
-        string title
-        string description
-        string status "todo/in_progress/done"
-        string priority "low/medium/high"
-        timestamp deadline
-        uuid creator_id FK
-    }
-    
-    COMMENTS {
-        uuid id PK
-        uuid task_id FK
-        uuid user_id FK
-        string content
-    }
-    
-    ACTIVITY_LOGS {
-        uuid id PK
-        uuid task_id FK
-        uuid user_id FK
-        string action
-    }
+```text
+       [ USERS ] 1 ------------------------- * [ TASKS ]
+       - id (UUID) PK                            - id (UUID) PK
+       - name (String)                           - title (String)
+       - email (String)                          - status (String)
+       - password_hash (String)                  - priority (String)
+       - role (String)                           - creator_id (UUID) FK
+                                                         |
+                                                         | 1
+             +-------------------------------------------+-----------------------------------------+
+           * |                                                                                   | *
+[ COMMENTS ]                                                                     [ ACTIVITY_LOGS ]
+- id (UUID) PK                                                                   - id (UUID) PK
+- task_id (UUID) FK                                                              - task_id (UUID) FK
+- user_id (UUID) FK >--* [ USERS ]                                               - user_id (UUID) FK >--* [ USERS ]
+- content (Text)                                                                 - action (String)
 ```
 
 ---
@@ -221,3 +209,42 @@ VITE_API_URL=http://localhost:5001/api
 VITE_SUPABASE_URL=https://<YOUR_PROJECT_ID>.supabase.co
 VITE_SUPABASE_ANON_KEY=<YOUR_SUPABASE_ANON_KEY>
 ```
+
+---
+
+## 🌐 Deployment Guide (Production)
+
+### 1. Database (Supabase)
+Deploying the database requires setting up a free project on Supabase:
+1. Head to [Supabase](https://supabase.com) and create a new project.
+2. Under **Project Settings > API**, copy your `Project URL`, the `anon` public key, and the `service_role` secret key.
+3. Use the Supabase SQL editor to run your table creation queries for Tasks, Users, Comments, etc.
+
+### 2. Backend (Render.com)
+The Node/Express API runs perfectly on Render:
+1. Create a free **Web Service** on [Render](https://render.com).
+2. Connect your GitHub repository and point the root directory to `taskmanager-backend`.
+3. Set the **Build Command** to `npm install`.
+4. Set the **Start Command** to `node server.js` (or `npm start`).
+5. In the **Environment Variables** section, add the required backend vars:
+   - `PORT` = `5001` (or whatever Render assigns)
+   - `SUPABASE_URL` = *(Your Supabase Project URL)*
+   - `SUPABASE_KEY` = *(Your Supabase `service_role` key)*
+   - `JWT_SECRET` = *(A strong secret string you create)*
+   - `JWT_EXPIRE` = `7d`
+   - `NODE_ENV` = `production`
+   - `CLIENT_URL` = *(For now, put a dummy URL like `https://temp.com`. You will update this after deploying the frontend!)*
+
+### 3. Frontend (Vercel.com)
+Vite + React apps deploy seamlessly onto Vercel:
+1. Import your GitHub repository to [Vercel](https://vercel.com) and select the `taskmanager-frontend` folder as the root.
+2. Vercel will automatically detect the Vite preset. 
+3. In **Environment Variables**, add:
+   - `VITE_API_URL` = `https://<YOUR-RENDER-BACKEND-URL>.onrender.com/api`
+   - `VITE_SUPABASE_URL` = *(Your Supabase Project URL)*
+   - `VITE_SUPABASE_ANON_KEY` = *(Your Supabase `anon` key)*
+4. Click **Deploy**.
+
+### 4. Finalize Configuration
+1. Go back to your **Render Backend configuration** and update the `CLIENT_URL` to equal your new Vercel production deployment URL (e.g., `https://my-taskflow.vercel.app`). This ensures the backend CORS policy accepts your frontend's REST API requests!
+2. Congratulations, your app is fully live! 🎉
