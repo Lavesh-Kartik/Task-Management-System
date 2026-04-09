@@ -1,6 +1,7 @@
 const asyncHandler = require('express-async-handler');
-const User = require('../models/User');
+const { supabase } = require('../config/db');
 const { generateToken } = require('../utils/generateToken');
+const bcrypt = require('bcryptjs');
 
 // @desc    Register user
 // @route   POST /api/auth/register
@@ -13,27 +14,41 @@ const register = asyncHandler(async (req, res) => {
     throw new Error('Please provide name, email, and password');
   }
 
-  const userExists = await User.findOne({ email });
+  const { data: userExists } = await supabase.from('users').select('id').eq('email', email.toLowerCase()).single();
   if (userExists) {
     res.status(409);
     throw new Error('An account with this email already exists');
   }
 
   // First registered user becomes admin
-  const userCount = await User.countDocuments();
-  const assignedRole = userCount === 0 ? 'admin' : role === 'admin' ? 'member' : 'member';
+  const { count } = await supabase.from('users').select('*', { count: 'exact', head: true });
+  const assignedRole = count === 0 ? 'admin' : role === 'admin' ? 'member' : 'member';
 
-  const user = await User.create({ name, email, password, role: assignedRole });
+  // Hash password
+  const salt = await bcrypt.genSalt(12);
+  const hashedPassword = await bcrypt.hash(password, salt);
+
+  const { data: user, error } = await supabase.from('users').insert([{
+    name,
+    email: email.toLowerCase(),
+    password: hashedPassword,
+    role: assignedRole,
+  }]).select().single();
+
+  if (error) {
+    res.status(500);
+    throw new Error('Failed to create user');
+  }
 
   res.status(201).json({
     success: true,
     data: {
-      _id: user._id,
+      _id: user.id,
       name: user.name,
       email: user.email,
       role: user.role,
       avatar: user.avatar,
-      token: generateToken(user._id),
+      token: generateToken(user.id),
     },
   });
 });
@@ -49,9 +64,9 @@ const login = asyncHandler(async (req, res) => {
     throw new Error('Please provide email and password');
   }
 
-  const user = await User.findOne({ email }).select('+password');
+  const { data: user } = await supabase.from('users').select('*').eq('email', email.toLowerCase()).single();
 
-  if (!user || !(await user.matchPassword(password))) {
+  if (!user || !(await bcrypt.compare(password, user.password))) {
     res.status(401);
     throw new Error('Invalid email or password');
   }
@@ -59,12 +74,12 @@ const login = asyncHandler(async (req, res) => {
   res.json({
     success: true,
     data: {
-      _id: user._id,
+      _id: user.id,
       name: user.name,
       email: user.email,
       role: user.role,
       avatar: user.avatar,
-      token: generateToken(user._id),
+      token: generateToken(user.id),
     },
   });
 });
@@ -73,8 +88,8 @@ const login = asyncHandler(async (req, res) => {
 // @route   GET /api/auth/me
 // @access  Private
 const getMe = asyncHandler(async (req, res) => {
-  const user = await User.findById(req.user._id);
-  res.json({ success: true, data: user });
+  const { data: user } = await supabase.from('users').select('id, name, email, role, avatar, is_active').eq('id', req.user._id).single();
+  res.json({ success: true, data: { ...user, _id: user.id } });
 });
 
 // @desc    Update profile
@@ -82,13 +97,24 @@ const getMe = asyncHandler(async (req, res) => {
 // @access  Private
 const updateProfile = asyncHandler(async (req, res) => {
   const { name, avatar } = req.body;
-  const user = await User.findById(req.user._id);
+  const updates = {};
+  
+  if (name !== undefined) updates.name = name;
+  if (avatar !== undefined) updates.avatar = avatar;
 
-  if (name) user.name = name;
-  if (avatar !== undefined) user.avatar = avatar;
+  const { data: updated, error } = await supabase
+    .from('users')
+    .update(updates)
+    .eq('id', req.user._id)
+    .select('id, name, email, role, avatar, is_active')
+    .single();
 
-  const updated = await user.save();
-  res.json({ success: true, data: updated });
+  if (error) {
+    res.status(400);
+    throw new Error('Profile update failed');
+  }
+
+  res.json({ success: true, data: { ...updated, _id: updated.id } });
 });
 
 module.exports = { register, login, getMe, updateProfile };

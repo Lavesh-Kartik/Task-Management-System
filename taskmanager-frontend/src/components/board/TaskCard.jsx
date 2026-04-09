@@ -2,12 +2,18 @@ import { useState } from 'react';
 import { Calendar, MessageSquare, Users, AlertTriangle, CheckCircle } from 'lucide-react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { format, isPast, differenceInDays } from 'date-fns';
+import { format, isPast, differenceInDays, isValid } from 'date-fns';
 import { useTask } from '../../context/TaskContext';
 
-const PRIORITY_DOT = { low: 'bg-slate-500', medium: 'bg-amber-500', high: 'bg-red-500' };
+const PRIORITY_DOT = { low: 'bg-slate-300', medium: 'bg-amber-500', high: 'bg-rose-500' };
 const getInitials = (name = '') => name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2);
-const AVATAR_COLORS = ['from-brand-500 to-purple-500', 'from-pink-500 to-rose-500', 'from-emerald-500 to-teal-500', 'from-orange-500 to-amber-500'];
+const AVATAR_COLORS = ['from-slate-800 to-slate-700', 'from-blue-600 to-blue-500', 'from-emerald-600 to-emerald-500', 'from-rose-600 to-rose-500'];
+
+const safeDate = (dateStr) => {
+  if (!dateStr) return null;
+  const d = new Date(dateStr);
+  return isValid(d) ? d : null;
+};
 
 export default function TaskCard({ task, onClick }) {
   const { updateTask } = useTask();
@@ -20,8 +26,9 @@ export default function TaskCard({ task, onClick }) {
     cursor: isDragging ? 'grabbing' : 'grab',
   };
 
-  const isOverdue = task.deadline && isPast(new Date(task.deadline)) && task.status !== 'done';
-  const daysLeft = task.deadline ? differenceInDays(new Date(task.deadline), new Date()) : null;
+  const d = safeDate(task.deadline);
+  const isOverdue = d && isPast(d) && task.status !== 'done';
+  const daysLeft = d ? differenceInDays(d, new Date()) : null;
 
   return (
     <div
@@ -35,27 +42,27 @@ export default function TaskCard({ task, onClick }) {
     >
       {/* Priority indicator */}
       <div className="flex items-start justify-between mb-3">
-        <div className="flex items-center gap-2 flex-wrap flex-1">
+        <div className="flex items-center gap-1.5 flex-wrap flex-1">
           {task.labels?.slice(0, 2).map((l) => (
-            <span key={l} className="badge bg-brand-600/20 text-brand-400 text-[10px]">{l}</span>
+            <span key={l} className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-500 text-[10px] font-bold uppercase tracking-wider">{l}</span>
           ))}
           {task.labels?.length > 2 && (
-            <span className="badge bg-dark-700 text-dark-500 text-[10px]">+{task.labels.length - 2}</span>
+            <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-500 text-[10px] font-bold uppercase tracking-wider">+{task.labels.length - 2}</span>
           )}
         </div>
         <div className={`w-2 h-2 rounded-full flex-shrink-0 mt-1 ${PRIORITY_DOT[task.priority]}`} title={`${task.priority} priority`} />
       </div>
 
       {/* Title */}
-      <h3 className="text-sm font-medium text-dark-100 mb-3 leading-relaxed line-clamp-2">{task.title}</h3>
+      <h3 className="text-sm font-bold tracking-tight text-slate-800 mb-3 leading-snug line-clamp-2">{task.title}</h3>
 
       {/* Deadline */}
-      {task.deadline && (
-        <div className={`flex items-center gap-1.5 text-[11px] mb-3 ${isOverdue ? 'text-red-400' : daysLeft !== null && daysLeft <= 3 ? 'text-amber-400' : 'text-dark-500'}`}>
+      {d && (
+        <div className={`flex items-center gap-1.5 text-[11px] font-semibold mb-4 ${isOverdue ? 'text-rose-500' : daysLeft !== null && daysLeft <= 3 ? 'text-amber-500' : 'text-slate-500'}`}>
           {isOverdue && <AlertTriangle className="w-3 h-3" />}
           <Calendar className="w-3 h-3" />
-          <span>{format(new Date(task.deadline), 'MMM d')}</span>
-          {isOverdue ? <span>(overdue)</span> : daysLeft !== null && daysLeft <= 3 ? <span>({daysLeft}d left)</span> : null}
+          <span>{format(d, 'MMM d')}</span>
+          {isOverdue ? <span>(overdue)</span> : daysLeft !== null && daysLeft >= 0 && daysLeft <= 3 ? <span>({daysLeft}d left)</span> : daysLeft !== null && daysLeft < 0 ? <span>(due)</span> : null}
         </div>
       )}
 
@@ -67,13 +74,13 @@ export default function TaskCard({ task, onClick }) {
             <div
               key={a._id}
               title={a.name}
-              className={`w-6 h-6 rounded-full bg-gradient-to-br ${AVATAR_COLORS[i % AVATAR_COLORS.length]} flex items-center justify-center text-white text-[9px] font-bold border border-dark-800 ring-[1.5px] ring-dark-700`}
+              className={`w-7 h-7 rounded-full bg-gradient-to-br ${AVATAR_COLORS[i % AVATAR_COLORS.length]} flex items-center justify-center text-white text-[10px] font-bold border-2 border-white shadow-sm ring-1 ring-slate-100 hover:z-10 transition-all`}
             >
               {getInitials(a.name)}
             </div>
           ))}
           {task.assignees?.length > 3 && (
-            <div className="w-6 h-6 rounded-full bg-dark-700 flex items-center justify-center text-dark-400 text-[9px] font-bold border border-dark-800 ring-[1.5px] ring-dark-700">
+            <div className="w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 text-[10px] font-bold border-2 border-white shadow-sm ring-1 ring-slate-100">
               +{task.assignees.length - 3}
             </div>
           )}
@@ -84,10 +91,10 @@ export default function TaskCard({ task, onClick }) {
               e.stopPropagation();
               updateTask(task._id, { status: 'done' });
             }}
-            className="p-1 rounded-md text-dark-500 hover:text-green-400 hover:bg-green-500/10 transition-all"
+            className="p-1.5 rounded-xl text-slate-300 hover:text-emerald-500 hover:bg-emerald-50 transition-all"
             title="Mark as completed"
           >
-            <CheckCircle className="w-4 h-4" />
+            <CheckCircle className="w-5 h-5" />
           </button>
         )}
       </div>

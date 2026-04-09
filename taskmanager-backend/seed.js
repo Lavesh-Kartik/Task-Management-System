@@ -1,50 +1,48 @@
 require('dotenv').config();
-const mongoose = require('mongoose');
+const { supabase } = require('./src/config/db');
 const bcrypt = require('bcryptjs');
 
-const connectDB = async () => {
-  await mongoose.connect(process.env.MONGO_URI);
-  console.log('✅ Connected to MongoDB');
-};
-
 const seedData = async () => {
-  await connectDB();
-
-  const User = require('./src/models/User');
-  const Task = require('./src/models/Task');
-  const Comment = require('./src/models/Comment');
-
   // Clean existing data
-  await User.deleteMany({});
-  await Task.deleteMany({});
-  await Comment.deleteMany({});
+  await supabase.from('comments').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+  await supabase.from('task_assignees').delete().neq('task_id', '00000000-0000-0000-0000-000000000000');
+  await supabase.from('tasks').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+  await supabase.from('notifications').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+  await supabase.from('users').delete().neq('id', '00000000-0000-0000-0000-000000000000');
 
-  console.log('🗑️  Cleared existing data');
+  console.log('🗑️  Cleared existing data in Supabase');
+
+  const salt = await bcrypt.genSalt(12);
+  const password123 = await bcrypt.hash('password123', salt);
 
   // Create users
-  const users = await User.create([
-    { name: 'Alice Admin', email: 'alice@taskflow.com', password: 'password123', role: 'admin' },
-    { name: 'Bob Developer', email: 'bob@taskflow.com', password: 'password123', role: 'member' },
-    { name: 'Carol Designer', email: 'carol@taskflow.com', password: 'password123', role: 'member' },
-    { name: 'Dave QA', email: 'dave@taskflow.com', password: 'password123', role: 'member' },
-  ]);
+  const { data: users, error: usersError } = await supabase.from('users').insert([
+    { name: 'Alice Admin', email: 'alice@taskflow.com', password: password123, role: 'admin' },
+    { name: 'Bob Developer', email: 'bob@taskflow.com', password: password123, role: 'member' },
+    { name: 'Carol Designer', email: 'carol@taskflow.com', password: password123, role: 'member' },
+    { name: 'Dave QA', email: 'dave@taskflow.com', password: password123, role: 'member' },
+  ]).select();
+
+  if (usersError) throw usersError;
 
   console.log(`👥 Created ${users.length} users`);
 
-  const [alice, bob, carol, dave] = users;
+  const alice = users.find(u => u.email === 'alice@taskflow.com');
+  const bob = users.find(u => u.email === 'bob@taskflow.com');
+  const carol = users.find(u => u.email === 'carol@taskflow.com');
+  const dave = users.find(u => u.email === 'dave@taskflow.com');
 
   // Create tasks
-  const tasks = await Task.create([
+  const { data: tasks, error: tasksError } = await supabase.from('tasks').insert([
     {
       title: 'Set up project architecture',
       description: 'Define folder structure, select tech stack, and create initial boilerplate for the new SaaS platform.',
       status: 'done',
       priority: 'high',
       labels: ['Backend', 'Feature'],
-      assignees: [alice._id, bob._id],
-      creator: alice._id,
-      deadline: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
-      order: 0,
+      creator_id: alice.id,
+      deadline: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+      task_order: 0,
     },
     {
       title: 'Design system & component library',
@@ -52,10 +50,9 @@ const seedData = async () => {
       status: 'done',
       priority: 'high',
       labels: ['Design', 'Frontend'],
-      assignees: [carol._id],
-      creator: alice._id,
-      deadline: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000),
-      order: 1,
+      creator_id: alice.id,
+      deadline: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
+      task_order: 1,
     },
     {
       title: 'User authentication flow',
@@ -63,10 +60,9 @@ const seedData = async () => {
       status: 'in_progress',
       priority: 'high',
       labels: ['Backend', 'Feature'],
-      assignees: [bob._id],
-      creator: alice._id,
-      deadline: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000),
-      order: 0,
+      creator_id: alice.id,
+      deadline: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString(),
+      task_order: 0,
     },
     {
       title: 'Kanban board implementation',
@@ -74,10 +70,9 @@ const seedData = async () => {
       status: 'in_progress',
       priority: 'medium',
       labels: ['Frontend', 'Feature'],
-      assignees: [carol._id, bob._id],
-      creator: bob._id,
-      deadline: new Date(Date.now() + 4 * 24 * 60 * 60 * 1000),
-      order: 1,
+      creator_id: bob.id,
+      deadline: new Date(Date.now() + 4 * 24 * 60 * 60 * 1000).toISOString(),
+      task_order: 1,
     },
     {
       title: 'Write API integration tests',
@@ -85,10 +80,9 @@ const seedData = async () => {
       status: 'in_progress',
       priority: 'medium',
       labels: ['Testing', 'Backend'],
-      assignees: [dave._id],
-      creator: alice._id,
-      deadline: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000),
-      order: 2,
+      creator_id: alice.id,
+      deadline: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString(),
+      task_order: 2,
     },
     {
       title: 'Set up CI/CD pipeline',
@@ -96,10 +90,9 @@ const seedData = async () => {
       status: 'todo',
       priority: 'medium',
       labels: ['Backend', 'Feature'],
-      assignees: [alice._id],
-      creator: alice._id,
-      deadline: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-      order: 0,
+      creator_id: alice.id,
+      deadline: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+      task_order: 0,
     },
     {
       title: 'Dashboard analytics charts',
@@ -107,10 +100,9 @@ const seedData = async () => {
       status: 'todo',
       priority: 'low',
       labels: ['Frontend', 'Feature'],
-      assignees: [carol._id],
-      creator: bob._id,
-      deadline: new Date(Date.now() + 10 * 24 * 60 * 60 * 1000),
-      order: 1,
+      creator_id: bob.id,
+      deadline: new Date(Date.now() + 10 * 24 * 60 * 60 * 1000).toISOString(),
+      task_order: 1,
     },
     {
       title: 'Mobile responsive layout',
@@ -118,10 +110,9 @@ const seedData = async () => {
       status: 'todo',
       priority: 'medium',
       labels: ['Frontend', 'Design'],
-      assignees: [carol._id, dave._id],
-      creator: carol._id,
-      deadline: new Date(Date.now() + 6 * 24 * 60 * 60 * 1000),
-      order: 2,
+      creator_id: carol.id,
+      deadline: new Date(Date.now() + 6 * 24 * 60 * 60 * 1000).toISOString(),
+      task_order: 2,
     },
     {
       title: 'Fix login redirect bug',
@@ -129,10 +120,9 @@ const seedData = async () => {
       status: 'todo',
       priority: 'high',
       labels: ['Bug', 'Urgent'],
-      assignees: [bob._id],
-      creator: dave._id,
-      deadline: new Date(Date.now() + 1 * 24 * 60 * 60 * 1000),
-      order: 3,
+      creator_id: dave.id,
+      deadline: new Date(Date.now() + 1 * 24 * 60 * 60 * 1000).toISOString(),
+      task_order: 3,
     },
     {
       title: 'Performance audit & optimization',
@@ -140,25 +130,46 @@ const seedData = async () => {
       status: 'todo',
       priority: 'low',
       labels: ['Frontend', 'Testing'],
-      assignees: [dave._id],
-      creator: alice._id,
-      deadline: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
-      order: 4,
+      creator_id: alice.id,
+      deadline: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
+      task_order: 4,
     },
-  ]);
+  ]).select();
 
+  if (tasksError) throw tasksError;
   console.log(`✅ Created ${tasks.length} tasks`);
 
+  // Map assignees by indexes
+  const assigneesAssignments = [
+    { task_idx: 0, assignees: [alice.id, bob.id] },
+    { task_idx: 1, assignees: [carol.id] },
+    { task_idx: 2, assignees: [bob.id] },
+    { task_idx: 3, assignees: [carol.id, bob.id] },
+    { task_idx: 4, assignees: [dave.id] },
+    { task_idx: 5, assignees: [alice.id] },
+    { task_idx: 6, assignees: [carol.id] },
+    { task_idx: 7, assignees: [carol.id, dave.id] },
+    { task_idx: 8, assignees: [bob.id] },
+    { task_idx: 9, assignees: [dave.id] },
+  ];
+
+  const assigneeInserts = [];
+  assigneesAssignments.forEach(({ task_idx, assignees }) => {
+    assignees.forEach(uid => assigneeInserts.push({ task_id: tasks[task_idx].id, user_id: uid }));
+  });
+  
+  await supabase.from('task_assignees').insert(assigneeInserts);
+
   // Create comments
-  await Comment.create([
-    { task: tasks[0]._id, author: bob._id, content: 'Completed the backend structure. Using MVC pattern with Express.' },
-    { task: tasks[0]._id, author: alice._id, content: 'Looks great! Approved for merge. 🎉' },
-    { task: tasks[2]._id, author: bob._id, content: 'JWT implementation is 80% done. Working on refresh token logic.' },
-    { task: tasks[2]._id, author: alice._id, content: 'Make sure to add rate limiting on the login endpoint.' },
-    { task: tasks[3]._id, author: carol._id, content: 'Drag and drop is working. Need to add smooth animations.' },
-    { task: tasks[4]._id, author: dave._id, content: 'Setting up the test environment. Will start writing tests tomorrow.' },
-    { task: tasks[8]._id, author: dave._id, content: 'Reproduced the bug. It\'s in the router config. Assigning to Bob.' },
-    { task: tasks[8]._id, author: bob._id, content: 'On it! Should be a quick fix.' },
+  await supabase.from('comments').insert([
+    { task_id: tasks[0].id, author_id: bob.id, content: 'Completed the backend structure. Using MVC pattern with Express.' },
+    { task_id: tasks[0].id, author_id: alice.id, content: 'Looks great! Approved for merge. 🎉' },
+    { task_id: tasks[2].id, author_id: bob.id, content: 'JWT implementation is 80% done. Working on refresh token logic.' },
+    { task_id: tasks[2].id, author_id: alice.id, content: 'Make sure to add rate limiting on the login endpoint.' },
+    { task_id: tasks[3].id, author_id: carol.id, content: 'Drag and drop is working. Need to add smooth animations.' },
+    { task_id: tasks[4].id, author_id: dave.id, content: 'Setting up the test environment. Will start writing tests tomorrow.' },
+    { task_id: tasks[8].id, author_id: dave.id, content: 'Reproduced the bug. It\'s in the router config. Assigning to Bob.' },
+    { task_id: tasks[8].id, author_id: bob.id, content: 'On it! Should be a quick fix.' },
   ]);
 
   console.log('💬 Created comments');
@@ -170,7 +181,6 @@ const seedData = async () => {
   console.log('Member: carol@taskflow.com / password123');
   console.log('Member: dave@taskflow.com  / password123');
 
-  await mongoose.disconnect();
   process.exit(0);
 };
 

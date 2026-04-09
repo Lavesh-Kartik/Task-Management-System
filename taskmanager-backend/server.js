@@ -2,7 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const morgan = require('morgan');
-const connectDB = require('./src/config/db');
+const { connectDB } = require('./src/config/db');
 const { errorHandler, notFound } = require('./src/middleware/error.middleware');
 
 // Routes
@@ -11,13 +11,16 @@ const taskRoutes = require('./src/routes/task.routes');
 const userRoutes = require('./src/routes/user.routes');
 const notificationRoutes = require('./src/routes/notification.routes');
 
-// Connect to MongoDB
+// Connect to DB
 connectDB();
 
 const app = express();
 
 // Middleware
-app.use(cors({ origin: process.env.CLIENT_URL, credentials: true }));
+app.use(cors({ 
+  origin: [process.env.CLIENT_URL, 'http://localhost:5173', 'http://127.0.0.1:5173', 'http://localhost:3000'],
+  credentials: true 
+}));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -40,7 +43,7 @@ app.use('/api/notifications', notificationRoutes);
 app.use(notFound);
 app.use(errorHandler);
 
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 5001;
 app.listen(PORT, () => {
   console.log(`\n🚀 Server running on http://localhost:${PORT}`);
   console.log(`📁 Environment: ${process.env.NODE_ENV}`);

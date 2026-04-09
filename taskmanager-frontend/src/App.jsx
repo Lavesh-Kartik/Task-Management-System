@@ -2,26 +2,44 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { TaskProvider } from './context/TaskContext';
+import { NotificationProvider } from './context/NotificationContext';
 import AppLayout from './components/layout/AppLayout';
-import Login from './pages/Login';
-import Register from './pages/Register';
+import Auth from './pages/Auth';
 import Dashboard from './pages/Dashboard';
 import Board from './pages/Board';
 import Tasks from './pages/Tasks';
 import Admin from './pages/Admin';
 import Profile from './pages/Profile';
+import TaskForm from './pages/TaskForm';
+import TaskView from './pages/TaskView';
 import { Loader2 } from 'lucide-react';
 
 const PrivateRoute = ({ children }) => {
   const { user, loading } = useAuth();
   if (loading) {
     return (
-      <div className="min-h-screen bg-dark-950 flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-brand-500" />
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-slate-800" />
       </div>
     );
   }
-  return user ? children : <Navigate to="/login" replace />;
+  if (!user) return <Navigate to="/login" replace />;
+  return children;
+};
+
+const MemberRoute = ({ children }) => {
+  const { user, isAdmin, loading } = useAuth();
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-slate-800" />
+      </div>
+    );
+  }
+  if (!user) return <Navigate to="/login" replace />;
+  // Admins landing on "/" get redirected to /admin
+  if (isAdmin) return <Navigate to="/admin" replace />;
+  return children;
 };
 
 const AdminRoute = ({ children }) => {
@@ -35,19 +53,26 @@ const AdminRoute = ({ children }) => {
 const PublicRoute = ({ children }) => {
   const { user, loading } = useAuth();
   if (loading) return null;
-  return !user ? children : <Navigate to="/" replace />;
+  return !user ? children : <Navigate to={user.role === 'admin' ? '/admin' : '/'} replace />;
 };
 
 function AppRoutes() {
   return (
     <Routes>
-      <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
-      <Route path="/register" element={<PublicRoute><Register /></PublicRoute>} />
+      <Route path="/login" element={<PublicRoute><Auth /></PublicRoute>} />
+      <Route path="/register" element={<PublicRoute><Auth /></PublicRoute>} />
 
       <Route element={<PrivateRoute><AppLayout /></PrivateRoute>}>
-        <Route index element={<Dashboard />} />
-        <Route path="board" element={<Board />} />
+        {/* Member-only landing pages */}
+        <Route index element={<MemberRoute><Dashboard /></MemberRoute>} />
+        <Route path="board" element={<MemberRoute><Board /></MemberRoute>} />
+
+        {/* Task pages accessible to ALL authenticated users (admin + member) */}
         <Route path="tasks" element={<Tasks />} />
+        <Route path="tasks/new" element={<TaskForm />} />
+        <Route path="tasks/:id" element={<TaskView />} />
+        <Route path="tasks/edit/:id" element={<TaskForm />} />
+
         <Route path="profile" element={<Profile />} />
         <Route path="admin" element={<AdminRoute><Admin /></AdminRoute>} />
       </Route>
@@ -62,20 +87,10 @@ export default function App() {
     <BrowserRouter>
       <AuthProvider>
         <TaskProvider>
-          <AppRoutes />
-          <Toaster
-            position="top-right"
-            toastOptions={{
-              style: {
-                background: '#1e2a42',
-                border: '1px solid #2a3452',
-                color: '#f0f4ff',
-                fontSize: '14px',
-              },
-              success: { iconTheme: { primary: '#22c55e', secondary: '#1e2a42' } },
-              error: { iconTheme: { primary: '#ef4444', secondary: '#1e2a42' } },
-            }}
-          />
+          <NotificationProvider>
+            <AppRoutes />
+            <Toaster position="top-right" />
+          </NotificationProvider>
         </TaskProvider>
       </AuthProvider>
     </BrowserRouter>

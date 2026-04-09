@@ -45,6 +45,7 @@ export const taskAPI = {
   getComments: (id) => API.get(`/tasks/${id}/comments`),
   addComment: (id, data) => API.post(`/tasks/${id}/comments`, data),
   deleteComment: (id, commentId) => API.delete(`/tasks/${id}/comments/${commentId}`),
+  getActivity: (id) => API.get(`/tasks/${id}/activity`),
 };
 
 // Users

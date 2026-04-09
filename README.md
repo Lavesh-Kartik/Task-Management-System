@@ -1,8 +1,93 @@
 # 🚀 TaskFlow — Full-Stack Task Management System
 
-A production-ready task management system inspired by Trello and Notion, built with React, Node.js, MongoDB, and JWT authentication.
+A production-ready task management system seamlessly blending elements of Trello and Notion, built with React, Node.js, PostgreSQL (via Supabase), Supabase Realtime, and JWT authentication.
 
-![Tech Stack](https://img.shields.io/badge/React-18-61DAFB?style=flat&logo=react) ![Node.js](https://img.shields.io/badge/Node.js-18-339933?style=flat&logo=node.js) ![MongoDB](https://img.shields.io/badge/MongoDB-Mongoose-47A248?style=flat&logo=mongodb) ![Tailwind CSS](https://img.shields.io/badge/Tailwind-CSS-06B6D4?style=flat&logo=tailwindcss)
+![Tech Stack](https://img.shields.io/badge/React-18-61DAFB?style=flat&logo=react) ![Node.js](https://img.shields.io/badge/Node.js-18-339933?style=flat&logo=node.js) ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-336791?style=flat&logo=postgresql) ![Tailwind CSS](https://img.shields.io/badge/Tailwind-CSS-06B6D4?style=flat&logo=tailwindcss) ![Supabase](https://img.shields.io/badge/Supabase-Realtime-3ECF8E?style=flat&logo=supabase)
+
+---
+
+## 🏗️ System Design
+
+### High-Level Architecture
+Our system follows a decoupled Client-Server architecture utilizing a modern stack. The React frontend communicates with the Node.js API backend via standard REST workflows, while leveraging Supabase for database integration and real-time WebSocket broadcasting.
+
+```mermaid
+graph TD
+    Client[React Frontend] -->|REST API (Axios)| Server[Node.js / Express Backend]
+    Server -->|Read/Write via supabase-js| SupabaseDB[(Supabase PostgreSQL)]
+    Client <-->|WebSockets| SupabaseRealtime[Supabase Realtime]
+    Server -->|Trigger Events| SupabaseRealtime
+```
+
+### Database Schema (ER Diagram)
+The relational flow inside our PostgreSQL database uses standard primary/foreign key relationships (UUIDs).
+
+```mermaid
+erDiagram
+    USERS ||--o{ TASKS : "creates & assigned to"
+    USERS ||--o{ COMMENTS : "writes"
+    USERS ||--o{ NOTIFICATIONS : "receives"
+    TASKS ||--o{ COMMENTS : "has"
+    TASKS ||--o{ ACTIVITY_LOGS : "generates"
+    
+    USERS {
+        uuid id PK
+        string name
+        string email
+        string password_hash
+        string role "admin/member"
+    }
+    
+    TASKS {
+        uuid id PK
+        string title
+        string description
+        string status "todo/in_progress/done"
+        string priority "low/medium/high"
+        timestamp deadline
+        uuid creator_id FK
+    }
+    
+    COMMENTS {
+        uuid id PK
+        uuid task_id FK
+        uuid user_id FK
+        string content
+    }
+    
+    ACTIVITY_LOGS {
+        uuid id PK
+        uuid task_id FK
+        uuid user_id FK
+        string action
+    }
+```
+
+---
+
+## 🧩 Architectural & Design Patterns Used
+
+### 1. **Model-View-Controller (MVC) Pattern Adaptation (Backend)**
+We structured the Express backend to cleanly separate concerns around a database-first model:
+- **Database Client** (`/config`): Supabase initialization to interface with the PostgreSQL tables.
+- **Controllers** (`/controllers`): Business logic handling request payloads, executing SQL queries via `supabase-js`, enforcing rules, and formatting returning JSON.
+- **Routes (Views)** (`/routes`): API mapping connecting HTTP request methods to specific controller functions.
+
+### 2. **Provider / Context Pattern (Frontend)**
+We eliminated "prop drilling" and centralized state by utilizing React's Context API to wrap our application tree:
+- `AuthContext`: Manages global user authentication state and JWT session persistence.
+- `TaskContext`: Manages global task lists, kanban updates, filters, and stateful caching.
+- `NotificationContext`: Subscribes to Supabase Realtime and globally distributes toast notifications and unread counts upon new events.
+
+### 3. **Middleware Pattern (Backend & Frontend)**
+- **Backend**: Express middleware (`auth.middleware.js`) acts as an interceptor. It evaluates requests to verify JWT tokens and checks `admin` privileges before allowing execution of protected controllers.
+- **Frontend**: Protected Route components act as visual middleware, halting render trees and redirecting unauthenticated users to the login screen.
+
+### 4. **Observer / Pub-Sub Pattern (Real-Time)**
+Our real-time notification engine relies on a publish-subscribe (Pub/Sub) model supported by Supabase. When the backend application executes a mutation (e.g., assigning a user to a task), Supabase's Database Webhooks trigger WebSocket events that publish directly to all subscribed frontend clients.
+
+### 5. **Custom Hook Pattern (Frontend)**
+We extracted complex API REST fetching and internal state lifecycle logic into customized React hooks (e.g., `useTask`, `useAuth`). This ensures our React UI components remain clean, reusable, and focused strictly on the presentation layer.
 
 ---
 
@@ -12,55 +97,24 @@ A production-ready task management system inspired by Trello and Notion, built w
 PROJECTS/
 ├── taskmanager-backend/          # Node.js + Express REST API
 │   ├── src/
-│   │   ├── config/db.js          # MongoDB connection
-│   │   ├── controllers/          # Route controllers
-│   │   │   ├── auth.controller.js
-│   │   │   ├── task.controller.js
-│   │   │   ├── user.controller.js
-│   │   │   └── notification.controller.js
-│   │   ├── middleware/
-│   │   │   ├── auth.middleware.js   # JWT verification
-│   │   │   └── error.middleware.js  # Global error handler
-│   │   ├── models/
-│   │   │   ├── User.js
-│   │   │   ├── Task.js
-│   │   │   ├── Comment.js
-│   │   │   └── Notification.js
-│   │   ├── routes/
-│   │   │   ├── auth.routes.js
-│   │   │   ├── task.routes.js
-│   │   │   ├── user.routes.js
-│   │   │   └── notification.routes.js
-│   │   └── utils/
-│   │       ├── generateToken.js
-│   │       └── notification.js
-│   ├── seed.js                   # Sample data seeder
-│   ├── server.js                 # Express entry point
+│   │   ├── config/db.js          # Supabase Client connection
+│   │   ├── controllers/          # Route controllers (Supabase logic)
+│   │   ├── middleware/           # JWT & Error handlers
+│   │   ├── routes/               # API Router
+│   │   └── utils/                # Auth & Activity log utilities
 │   ├── .env                      # Local environment variables
-│   └── .env.example              # Template for deployment
+│   └── server.js                 # Express entry point
 │
 └── taskmanager-frontend/         # React + Vite + Tailwind
     ├── src/
-    │   ├── api/index.js          # Axios API service layer
-    │   ├── components/
-    │   │   ├── board/            # Kanban board components
-    │   │   ├── layout/           # Navbar, Sidebar, AppLayout
-    │   │   └── tasks/            # Task modals and cards
-    │   ├── context/
-    │   │   ├── AuthContext.jsx
-    │   │   └── TaskContext.jsx
-    │   ├── pages/
-    │   │   ├── Login.jsx
-    │   │   ├── Register.jsx
-    │   │   ├── Dashboard.jsx     # Stats + recent tasks
-    │   │   ├── Board.jsx         # Kanban board with DnD
-    │   │   ├── Tasks.jsx         # List view with filters
-    │   │   ├── Admin.jsx         # User management (admin only)
-    │   │   └── Profile.jsx       # User settings
-    │   ├── App.jsx
-    │   └── main.jsx
-    ├── .env                      # VITE_API_URL
-    └── vite.config.js
+    │   ├── api/index.js          # Axios API service layer interceptors
+    │   ├── components/           # Reusable UI/Layout components
+    │   ├── context/              # React Context Providers
+    │   ├── lib/                  # External clients (Supabase Realtime)
+    │   ├── pages/                # Main Application Views
+    │   └── App.jsx               # Root Component
+    ├── .env                      # VITE public variables
+    └── vite.config.js            # Build Settings
 ```
 
 ---
@@ -69,41 +123,25 @@ PROJECTS/
 
 ### Prerequisites
 - Node.js 18+
-- MongoDB (local or Atlas URI)
+- Active Supabase Project (PostgreSQL + Realtime module)
 
-### 1. Backend
+### 1. Backend Server
+Ensure your backend `.env` has the necessary Supabase credentials before booting.
 
 ```bash
 cd taskmanager-backend
 npm install
-cp .env.example .env    # Edit MONGO_URI and JWT_SECRET
-npm run dev             # http://localhost:5000
+npm run dev             # Server boots on http://localhost:5001
 ```
 
-### 2. Seed Sample Data (Optional)
-
-```bash
-cd taskmanager-backend
-npm run seed
-```
-
-**Test accounts created by seed:**
-| Role   | Email                  | Password    |
-|--------|------------------------|-------------|
-| Admin  | alice@taskflow.com     | password123 |
-| Member | bob@taskflow.com       | password123 |
-| Member | carol@taskflow.com     | password123 |
-| Member | dave@taskflow.com      | password123 |
-
-### 3. Frontend
+### 2. Frontend Client
+Ensure your frontend `.env` is connected to your local backend and has the public Supabase Anon key.
 
 ```bash
 cd taskmanager-frontend
 npm install
-npm run dev             # http://localhost:5173
+npm run dev             # Client boots on http://localhost:5173
 ```
-
-> The `vite.config.js` proxies `/api/*` requests to `localhost:5000` automatically.
 
 ---
 
@@ -113,29 +151,23 @@ npm run dev             # http://localhost:5173
 | Method | Endpoint             | Description              | Auth |
 |--------|---------------------|--------------------------|------|
 | POST   | `/api/auth/register` | Register new user        | No   |
-| POST   | `/api/auth/login`    | Login, get JWT token     | No   |
-| GET    | `/api/auth/me`       | Get current user         | JWT  |
-| PATCH  | `/api/auth/profile`  | Update name/avatar       | JWT  |
+| POST   | `/api/auth/login`    | Login, gets JWT session  | No   |
+| GET    | `/api/auth/me`       | Get current user block   | JWT  |
+| PATCH  | `/api/auth/profile`  | Update account avatar    | JWT  |
 
-### Tasks
-| Method | Endpoint                          | Description           | Auth   |
-|--------|----------------------------------|-----------------------|--------|
-| GET    | `/api/tasks`                     | List tasks (filterable)| JWT   |
-| POST   | `/api/tasks`                     | Create task           | JWT    |
-| GET    | `/api/tasks/:id`                 | Get task detail       | JWT    |
-| PATCH  | `/api/tasks/:id`                 | Update task           | JWT    |
-| DELETE | `/api/tasks/:id`                 | Delete task           | JWT    |
-| GET    | `/api/tasks/:id/comments`        | Get comments          | JWT    |
-| POST   | `/api/tasks/:id/comments`        | Add comment           | JWT    |
-| DELETE | `/api/tasks/:id/comments/:cmtId` | Delete comment        | JWT    |
+### Tasks & Activities
+| Method | Endpoint                          | Description             | Auth   |
+|--------|----------------------------------|-------------------------|--------|
+| GET    | `/api/tasks`                     | List tasks (filterable) | JWT    |
+| POST   | `/api/tasks`                     | Create task             | JWT    |
+| GET    | `/api/tasks/:id`                 | Get task detail         | JWT    |
+| PATCH  | `/api/tasks/:id`                 | Update task             | JWT    |
+| DELETE | `/api/tasks/:id`                 | Delete task             | JWT    |
+| GET    | `/api/tasks/:id/comments`        | Get comments            | JWT    |
+| POST   | `/api/tasks/:id/comments`        | Add comment             | JWT    |
+| GET    | `/api/tasks/:id/activity`        | Get native activity logs| JWT    |
 
-**Query params for GET /api/tasks:**
-- `status=todo|in_progress|done`
-- `priority=low|medium|high`
-- `search=keyword`
-- `sort=createdAt|deadline|priority`
-
-### Users (Admin only)
+### Users (Admin Panel Only)
 | Method | Endpoint              | Description        |
 |--------|-----------------------|--------------------|
 | GET    | `/api/users`          | List all users     |
@@ -145,86 +177,47 @@ npm run dev             # http://localhost:5173
 ### Notifications
 | Method | Endpoint                        | Description              |
 |--------|---------------------------------|--------------------------|
-| GET    | `/api/notifications`            | Get my notifications     |
+| GET    | `/api/notifications`            | Get my web notifications |
 | PATCH  | `/api/notifications/read-all`   | Mark all as read         |
-| PATCH  | `/api/notifications/:id/read`   | Mark one as read         |
-| DELETE | `/api/notifications/:id`        | Delete notification      |
-
----
-
-## 🌐 Deployment
-
-### Backend → Render
-
-1. Push `taskmanager-backend/` to a GitHub repo
-2. Create a new **Web Service** on [Render](https://render.com)
-3. Set **Start Command**: `npm start`
-4. Set **Environment Variables**:
-   ```
-   MONGO_URI = mongodb+srv://user:pass@cluster.mongodb.net/taskmanager
-   JWT_SECRET = your_super_secret_key_32_chars_min
-   JWT_EXPIRE = 7d
-   NODE_ENV = production
-   CLIENT_URL = https://your-frontend.vercel.app
-   ```
-
-### Frontend → Vercel
-
-1. Push `taskmanager-frontend/` to a GitHub repo
-2. Import project on [Vercel](https://vercel.com)
-3. Set **Environment Variable**:
-   ```
-   VITE_API_URL = https://your-backend.onrender.com/api
-   ```
-4. Deploy!
-
-### Database → MongoDB Atlas
-
-1. Create a free cluster at [cloud.mongodb.com](https://cloud.mongodb.com)
-2. Under **Database Access** → create user with password
-3. Under **Network Access** → Allow access from anywhere (`0.0.0.0/0`)
-4. Copy the **Connection String** and replace `MONGO_URI` in your backend env
 
 ---
 
 ## ✅ Features
 
 ### Core
-- [x] JWT authentication with refresh on load
-- [x] User signup / login / logout
-- [x] Role-based access (admin / member)
-- [x] Dashboard with stats and progress bar
-- [x] Kanban board with drag-and-drop
-- [x] Task CRUD with title, description, status, priority, deadline, labels, assignees
-- [x] Task detail view with full metadata
-- [x] Comments on tasks (add/delete)
-- [x] Search and filter tasks (status, priority, sort)
-- [x] Notifications (real-time poll every 30s)
-- [x] Admin panel for user management
+- [x] JWT authentication with secure session handling
+- [x] Role-based access mapping (Admin / Member access control)
+- [x] Interactive Kanban board with drag-and-drop state persistence
+- [x] Comprehensive Task metrics & analytics Dashboard
+- [x] Seamless Task CRUD operations with rich metadata
+- [x] Activity tracking & audit logging per task
+- [x] Built-in Real-time Notification engine powered by Supabase WebSockets
+- [x] Deep filtering & search across task status and priorities
 
 ### UI/UX
-- [x] Dark mode design (Trello/Notion inspired)
-- [x] Responsive layout
-- [x] Smooth animations and transitions
-- [x] Toast notifications
-- [x] Loading states
-- [x] Overdue task highlighting
+- [x] Modern, clean dark/light semantic UI (Trello/Notion inspired)
+- [x] Stable, table-like layout rendering across active lists to prevent shift
+- [x] Advanced micro-interactions (Status sliding reveals, hover states)
+- [x] Native toast notifications & animated pop-over modal dialogs
 
 ---
 
-## 🔑 Environment Variables
+## 🔑 Environment Variables Structure
 
-### Backend (`.env`)
+### Backend (`taskmanager-backend/.env`)
 ```env
-PORT=5000
-MONGO_URI=mongodb://localhost:27017/taskmanager
+PORT=5001
+SUPABASE_URL=https://<YOUR_PROJECT_ID>.supabase.co
+SUPABASE_KEY=<YOUR_SUPABASE_SERVICE_ROLE_KEY>
 JWT_SECRET=your_jwt_secret_min_32_chars
 JWT_EXPIRE=7d
 NODE_ENV=development
 CLIENT_URL=http://localhost:5173
 ```
 
-### Frontend (`.env`)
+### Frontend (`taskmanager-frontend/.env`)
 ```env
-VITE_API_URL=http://localhost:5000/api
+VITE_API_URL=http://localhost:5001/api
+VITE_SUPABASE_URL=https://<YOUR_PROJECT_ID>.supabase.co
+VITE_SUPABASE_ANON_KEY=<YOUR_SUPABASE_ANON_KEY>
 ```

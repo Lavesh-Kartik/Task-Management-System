@@ -7,8 +7,7 @@ import { Plus, Filter, Search, SlidersHorizontal, Loader2 } from 'lucide-react';
 import { useTask } from '../context/TaskContext';
 import KanbanColumn from '../components/board/KanbanColumn';
 import TaskCard from '../components/board/TaskCard';
-import TaskModal from '../components/tasks/TaskModal';
-import TaskDetailModal from '../components/tasks/TaskDetailModal';
+import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 
 const COLUMNS = [
@@ -23,10 +22,7 @@ export default function Board() {
   const { tasks, fetchTasks, updateTask, loading, filters, setFilters } = useTask();
   const [search, setSearch] = useState('');
   const [priorityFilter, setPriorityFilter] = useState('');
-  const [showCreate, setShowCreate] = useState(false);
-  const [createStatus, setCreateStatus] = useState('todo');
-  const [detailTaskId, setDetailTaskId] = useState(null);
-  const [editTask, setEditTask] = useState(null);
+  const navigate = useNavigate();
   const [activeTask, setActiveTask] = useState(null);
 
   const sensors = useSensors(
@@ -71,19 +67,19 @@ export default function Board() {
   };
 
   const openCreate = (status) => {
-    setCreateStatus(status);
-    setShowCreate(true);
+    // optional: could pass state to preset status, but we default to todo in new task page.
+    navigate('/tasks/new');
   };
 
   return (
-    <div className="space-y-4 animate-fade-in">
+    <div className="space-y-6 animate-fade-in flex flex-col h-full max-w-[1600px] mx-auto">
       {/* Header */}
-      <div className="flex items-center gap-3 flex-wrap">
-        <h1 className="text-2xl font-bold text-dark-50 mr-auto">Kanban Board</h1>
+      <div className="flex items-center gap-4 flex-wrap bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex-shrink-0">
+        <h1 className="text-2xl font-black text-slate-800 tracking-tight mr-auto">Task Board</h1>
 
         {/* Search */}
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-dark-500" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
           <input
             id="board-search"
             type="text"
@@ -114,8 +110,8 @@ export default function Board() {
 
       {/* Board */}
       {loading ? (
-        <div className="flex items-center justify-center h-64">
-          <Loader2 className="w-8 h-8 animate-spin text-brand-500" />
+        <div className="flex items-center justify-center h-64 flex-1">
+          <Loader2 className="w-8 h-8 animate-spin text-slate-800" />
         </div>
       ) : (
         <DndContext
@@ -131,7 +127,7 @@ export default function Board() {
                 status={status}
                 title={title}
                 tasks={getColumnTasks(status)}
-                onTaskClick={(id) => setDetailTaskId(id)}
+                onTaskClick={(id) => navigate(`/tasks/${id}`)}
                 onAddTask={openCreate}
               />
             ))}
@@ -139,7 +135,7 @@ export default function Board() {
 
           <DragOverlay>
             {activeTask ? (
-              <div className="rotate-2 scale-105">
+              <div className="shadow-2xl opacity-90 cursor-grabbing bg-slate-50 z-50 rounded-xl">
                 <TaskCard task={activeTask} onClick={() => {}} />
               </div>
             ) : null}
@@ -147,27 +143,6 @@ export default function Board() {
         </DndContext>
       )}
 
-      {showCreate && (
-        <TaskModal
-          initialStatus={createStatus}
-          onClose={() => setShowCreate(false)}
-          onSaved={() => fetchTasks()}
-        />
-      )}
-      {detailTaskId && (
-        <TaskDetailModal
-          taskId={detailTaskId}
-          onClose={() => setDetailTaskId(null)}
-          onEdit={(t) => { setDetailTaskId(null); setEditTask(t); }}
-        />
-      )}
-      {editTask && (
-        <TaskModal
-          task={editTask}
-          onClose={() => setEditTask(null)}
-          onSaved={() => { fetchTasks(); setEditTask(null); }}
-        />
-      )}
     </div>
   );
 }

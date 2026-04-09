@@ -1,6 +1,6 @@
 const jwt = require('jsonwebtoken');
 const asyncHandler = require('express-async-handler');
-const User = require('../models/User');
+const { supabase } = require('../config/db');
 
 const protect = asyncHandler(async (req, res, next) => {
   let token;
@@ -9,12 +9,22 @@ const protect = asyncHandler(async (req, res, next) => {
     try {
       token = req.headers.authorization.split(' ')[1];
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      req.user = await User.findById(decoded.id).select('-password');
+      
+      const { data: user, error } = await supabase
+        .from('users')
+        .select('id, name, email, role, avatar, is_active')
+        .eq('id', decoded.id)
+        .single();
 
-      if (!req.user) {
+      if (error || !user) {
         res.status(401);
         throw new Error('User not found');
       }
+      
+      req.user = {
+        _id: user.id,
+        ...user
+      };
 
       next();
     } catch (error) {
@@ -39,3 +49,4 @@ const adminOnly = (req, res, next) => {
 };
 
 module.exports = { protect, adminOnly };
+

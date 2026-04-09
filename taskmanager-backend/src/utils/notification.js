@@ -1,8 +1,14 @@
-const Notification = require('../models/Notification');
+const { supabase } = require('../config/db');
 
 const createNotification = async ({ userId, message, type = 'general', link = '' }) => {
   try {
-    await Notification.create({ user: userId, message, type, link });
+    const { error } = await supabase.from('notifications').insert([{
+      user_id: userId,
+      message,
+      type,
+      link
+    }]);
+    if (error) throw error;
   } catch (err) {
     console.error('Notification error:', err.message);
   }
