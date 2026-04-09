@@ -99,6 +99,9 @@ export default function Auth() {
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                   <input type={showPw ? 'text' : 'password'} required value={form.password} onChange={set('password')} placeholder="••••••••" className="input pl-10 pr-10 bg-slate-50 border-slate-200" />
+                  <button type="button" onClick={() => setShowPw(!showPw)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors">
+                    {showPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
                 </div>
               </div>
               <button type="submit" disabled={loading} className="btn-primary w-full justify-center py-3 mt-4 text-sm uppercase tracking-wide">
@@ -140,7 +143,10 @@ export default function Auth() {
                 <label className="label">Password</label>
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                  <input type="password" required minLength={6} value={form.password} onChange={set('password')} placeholder="Min 6 chars" className="input pl-10 pr-10 bg-slate-50 border-slate-200" />
+                  <input type={showPw ? 'text' : 'password'} required minLength={6} value={form.password} onChange={set('password')} placeholder="Min 6 chars" className="input pl-10 pr-10 bg-slate-50 border-slate-200" />
+                  <button type="button" onClick={() => setShowPw(!showPw)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors">
+                    {showPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
                 </div>
               </div>
               <button type="submit" disabled={loading} className="btn-primary w-full justify-center py-3 mt-4 text-sm uppercase tracking-wide">
